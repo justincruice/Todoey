@@ -12,9 +12,15 @@ class ToDoListViewController: UITableViewController {
     
     
     var itemArray = ["Find Material", "Get Material", "Use Material"]
+    
+    let defaults = UserDefaults.standard
 
     override func viewDidLoad() {
         super.viewDidLoad()
+        
+        if let items = defaults.array(forKey: "ToDoListArray") as? [String]{
+            itemArray = items
+        }
         // Do any additional setup after loading the view, typically from a nib.
     }
 
@@ -51,9 +57,6 @@ class ToDoListViewController: UITableViewController {
 
         
         tableView.deselectRow(at: indexPath, animated: true)
-        
-        
-        
         //above makes the highlight dissappear
     }
     
@@ -69,6 +72,9 @@ class ToDoListViewController: UITableViewController {
             //What Will happen once the user clicks the add item button on UIAlert
             
             self.itemArray.append(textField.text!)
+            
+            self.defaults.set(self.itemArray, forKey: "ToDoListArray")
+            
             self.tableView.reloadData()
         }
         
