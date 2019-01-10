@@ -14,6 +14,12 @@ class ToDoListViewController: UITableViewController {
     
     var itemArray = [Item]()
     
+    var selectedCategory : Category? {
+        didSet{
+         loadItems()
+        }
+    }
+    
     let defaults = UserDefaults.standard
     
     
@@ -21,7 +27,7 @@ class ToDoListViewController: UITableViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+       // print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
         
 
 //        let newItem = Item()
@@ -39,8 +45,8 @@ class ToDoListViewController: UITableViewController {
 //        if let items = defaults.array(forKey: "ToDoListArray") as? [Item]{
 //            itemArray = items
     
-        
-        loadItems()
+        // load items called in selectedCategory, to avoid crashing.
+        //loadItems()
         // Do any additional setup after loading the view, typically from a nib.
     }
 
@@ -111,12 +117,12 @@ class ToDoListViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             //What Will happen once the user clicks the add item button on UIAlert
             
-           
             
             
             let newItem = Item(context: self.context)
             newItem.title = textField.text!
             newItem.done = false
+            newItem.parentCategory = self.selectedCategory
             self.itemArray.append(newItem)
             
             self.saveItems()
@@ -148,14 +154,30 @@ class ToDoListViewController: UITableViewController {
         }
     
     //loads items
-    func loadItems() {
-        let request : NSFetchRequest<Item> = Item.fetchRequest()
+    func loadItems(with request: NSFetchRequest<Item> = Item.fetchRequest(), predicate:NSPredicate? = nil) {
+        //= Item.fectrequest gives us a default value
+        // (with request: is has an internal and external parameter
+       // let request : NSFetchRequest<Item> = Item.fetchRequest()
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        }else{
+            request.predicate = categoryPredicate
+        }
+        
+//        let compoundPredicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, predicate])
+//
+//        request.predicate = compoundPredicate
+        
         do {
             itemArray = try context.fetch(request)
         }catch {
             print("Error fetching data from context \(error)")
         }
-
+        tableView.reloadData()
+        
     }
     
     }
@@ -167,21 +189,48 @@ extension ToDoListViewController: UISearchBarDelegate {
     func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
         let request : NSFetchRequest<Item> = Item.fetchRequest()
         
+        // original code before refactoring
+        
+//        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+//
+//        request.predicate = predicate
+//
+//        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+//
+//        request.sortDescriptors = [sortDescriptor]
+//
+//        do {
+//            itemArray = try context.fetch(request)
+//        }catch {
+//            print("Error fetching data from context \(error)")
+//        }
+//
+//        tableView.reloadData()
+//    }
+        
         let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
         
-        request.predicate = predicate
+        request.sortDescriptors = [NSSortDescriptor(key: "title", ascending: true)]
         
-        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+        loadItems(with: request, predicate: predicate)
         
-        request.sortDescriptors = [sortDescriptor]
-        
-        do {
-            itemArray = try context.fetch(request)
-        }catch {
-            print("Error fetching data from context \(error)")
+    
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+        if searchBar.text?.count == 0 {
+            loadItems()
+            
+            //without below code, only reloads when you click an item
+            DispatchQueue.main.async {
+                
+                searchBar.resignFirstResponder()
+                
+            }
+            
+            tableView.reloadData()
         }
         
-        tableView.reloadData()
     }
 }
 
